@@ -99,9 +99,7 @@ sub mode2
 # Function for the rest of the program
 sub program_bulk
 {
-my $dialectcheck = 0;
 my $printfile;
-my $fh = @_;
 
 # Meat of the code: Finding and chaning tags for new standard
 
