@@ -7,12 +7,12 @@ use XML::Twig
 # The purpose of this app is to convert TBX-Basic files into the newest standard of TBX
 # using the XML parser XML Twig. 
 #
+# There ability to convert TBX-Min files is also currently implemented and undergoing testing.
 #
+# The App may be run silently with no commands or with prompts
 #
-#
-#
-#
-#
+# The order for command line input is perl <perlscript> <filename> <option1> <option2>
+# Usable options: -s -> Run silently, -tbxm -> file is a .tbxm file (must be used with the -s option)
 #
 
 # Option to run silently or with command prompt interface
@@ -120,7 +120,6 @@ twig_handlers => {
 				
 	TBX => sub {	$_->set_att( style => "DCT" ); 
 					$_->change_att_name( 'dialect', 'type' );
-					$dialectcheck++;
 				},
 				
 	martif => sub { $_->set_tag( 'tbx' );
