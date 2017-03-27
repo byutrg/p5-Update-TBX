@@ -16,6 +16,8 @@ use XML::Twig
 #
 
 # Option to run silently or with command prompt interface
+
+
 my $input_filehandle;
 my $dialect;
 my $check = 0;
@@ -85,12 +87,11 @@ sub mode1
 	$dialect = "-" . <STDIN>;
 	
 	print "Starting file analysis:\n";
-	
 	program_bulk($fh);
 }
 
-### Run silently
-sub mode2
+# Run Silently
+sub mode2  
 {
 	my ($fh) = @_;
 	program_bulk($fh);
@@ -99,10 +100,9 @@ sub mode2
 # Function for the rest of the program
 sub program_bulk
 {
+	
+	
 my $printfile;
-
-# Meat of the code: Finding and chaning tags for new standard
-
 my $twig_instance = XML::Twig->new(
 
 pretty_print => 'indented',
@@ -146,18 +146,24 @@ twig_handlers => {
 	
 	# Remove old tags that are no longer used
 	
-	ntig => sub { $_->delete() },
-	
-	termGrp => sub { $_->delete() },
-	
+	term => sub {
+		    my ($twig, $elt) = @_;
+	            my $parent = $elt->parent('ntig');
+	            $elt->cut();
+	            $elt->paste($parent);  
+			},
+				
+	ntig => sub { $_->set_tag( 'termSec' ) },
+				
+	termGrp => sub { $_->delete() },				
 	
 },
 
 );
 
+
+
 $printfile = "converted_termbase.tbx";
-
-
 if($dialect eq '-tbxm')
 {
 	$printfile = "converted_termbase.tbxm";
@@ -169,22 +175,8 @@ unless(open FILE, '>', $printfile) {
 }
 
 
-if (@ARGV > 1) 
-{  
-	$twig_instance->parsefile($ARGV[0]);
-	$twig_instance->print( \*FILE); 
-}
-elsif (@ARGV == 1)
-{
-	$twig_instance->parsefile($ARGV[0]);
-	$twig_instance->print( \*FILE); 
-}
-
+$twig_instance->parsefile($ARGV[0]);
+$twig_instance->print( \*FILE); 
 $twig_instance->flush;  
 
 }
-
-
-	
-
-
