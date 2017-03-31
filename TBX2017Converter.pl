@@ -114,7 +114,7 @@ twig_handlers => {
 	
 	langGroup => sub { $_->set_tag( 'langSet' ) },
 	
-	termGroup => sub { $_->set_tag( 'termSec' ) },
+	termGroup => sub { $_->set_tag( 'termSec' ) }, #Skip <tig>, straight to new standard
 	
 	# Replace tags with updated names
 				
@@ -149,11 +149,15 @@ twig_handlers => {
 	term => sub {
 		    my ($twig, $elt) = @_;
 	            my $parent = $elt->parent('ntig');
+				
+				if(defined($parent))
+				{
 	            $elt->cut();
 	            $elt->paste($parent);  
+				}
 			},
 				
-	ntig => sub { $_->set_tag( 'termSec' ) },
+	ntig => sub { $_->set_tag( 'termSec' ) },			
 				
 	termGrp => sub { $_->delete() },				
 	
