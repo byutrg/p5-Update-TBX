@@ -7,19 +7,15 @@ use XML::Twig
 # The purpose of this app is to convert TBX-Basic files into the newest standard of TBX
 # using the XML parser XML Twig. 
 #
-# There ability to convert TBX-Min files is also currently implemented and undergoing testing.
+# There ability to convert TBX-Min files is also functional
 #
 # The App may be run silently with no commands or with prompts
 #
 # The order for command line input is perl <perlscript> <filename> <option1> <option2>
-# Usable options: -s -> Run silently, -tbxm -> file is a .tbxm file (must be used with the -s option)
-#
-
-# Option to run silently or with command prompt interface
+# Usable options: -s == Run silently
 
 
 my $input_filehandle;
-my $dialect;
 my $check = 0;
 my $elt;
 
@@ -28,7 +24,6 @@ if (@ARGV > 1) {
 	
 	if ($ARGV[1] eq "-s") 
 	{
-		$dialect = $ARGV[2];
 		my $input_filehandle = get_filehandle($ARGV[0]);
 		mode2($input_filehandle);
 	}
@@ -61,9 +56,9 @@ sub get_filehandle
 
 sub print_instructions
 {
-	print "Usage: $0 <input file name> <options> <options>\n";
+	print "Usage: $0 <input file name> <options> \n";
 	print "\tOPTIONS:\n";
-	print "\t\t-s\tRun Silently with no User Interface prompts\n\t\t-tbxm\tConvert a TBX-Min file\n\n";
+	print "\t\t-s\tRun Silently with no User Interface prompts\n\n";
 	exit();
 }
 ### Run with prompts
@@ -82,9 +77,6 @@ sub mode1
 
 		last
 	}
-
-	print "What type of file is being converted? Please enter tbx or tbxm: ";
-	$dialect = "-" . <STDIN>;
 	
 	print "Starting file analysis:\n";
 	program_bulk($fh);
@@ -101,7 +93,7 @@ sub mode2
 sub program_bulk
 {
 	
-	
+my $tbxMinFlag = 0;
 my $printfile;
 my $twig_instance = XML::Twig->new(
 
@@ -114,13 +106,16 @@ twig_handlers => {
 	
 	langGroup => sub { $_->set_tag( 'langSet' ) },
 	
-	termGroup => sub { $_->set_tag( 'termSec' ) }, #Skip <tig>, straight to new standard
+	termGroup => sub { $_->set_tag( 'termSec' ) },
 	
 	# Replace tags with updated names
 				
-	TBX => sub {	$_->set_att( style => "DCT" ); 
+	TBX => sub {	$tbxMinFlag++;
+					$_->set_att( style => "DCT" ); 
 					$_->change_att_name( 'dialect', 'type' );
 				},
+				
+	tbxMin => sub {	$tbxMinFlag = 1; },
 				
 	martif => sub { $_->set_tag( 'tbx' );
 					$_->set_att( style => "DCA" ); 
@@ -165,12 +160,15 @@ twig_handlers => {
 
 );
 
+$twig_instance->parsefile($ARGV[0]);
 
-
-$printfile = "converted_termbase.tbx";
-if($dialect eq '-tbxm')
+if($tbxMinFlag == 1)
 {
-	$printfile = "converted_termbase.tbxm";
+	$printfile = "converted_file.tbxm";
+}
+elsif ($tbxMinFlag == 0)
+{
+	$printfile = "converted_file.tbx";
 }
 
 
@@ -178,8 +176,6 @@ unless(open FILE, '>', $printfile) {
 	die "\nUnable to create $printfile\n";
 }
 
-
-$twig_instance->parsefile($ARGV[0]);
 $twig_instance->print( \*FILE); 
 $twig_instance->flush;  
 
