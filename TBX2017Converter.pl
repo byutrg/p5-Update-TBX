@@ -78,7 +78,7 @@ sub mode1
 		last
 	}
 	
-	print "Starting file analysis:\n";
+	
 	program_bulk($fh);
 }
 
@@ -93,7 +93,7 @@ sub mode2
 sub program_bulk
 {
 	
-my $tbxMinFlag = 0;
+my $tbxMinFlag;
 my $printfile;
 my $twig_instance = XML::Twig->new(
 
@@ -110,12 +110,17 @@ twig_handlers => {
 	
 	# Replace tags with updated names
 				
-	TBX => sub {	$tbxMinFlag++;
+	TBX => sub {	my ($twig,$elt) = @_;
+					$tbxMinFlag = $elt->att("dialect");
+					$_->set_tag( 'tbx' );
 					$_->set_att( style => "DCT" ); 
 					$_->change_att_name( 'dialect', 'type' );
 				},
 				
-	tbxMin => sub {	$tbxMinFlag = 1; },
+	tbxMin => sub {		my ($twig,$elt) = @_;
+						$tbxMinFlag = $elt->att("dialect");
+				
+				},
 				
 	martif => sub { $_->set_tag( 'tbx' );
 					$_->set_att( style => "DCA" ); 
@@ -160,23 +165,36 @@ twig_handlers => {
 
 );
 
+
 $twig_instance->parsefile($ARGV[0]);
 
-if($tbxMinFlag == 1)
+if (@ARGV == 1)
 {
-	$printfile = "converted_file.tbxm";
-}
-elsif ($tbxMinFlag == 0)
-{
-	$printfile = "converted_file.tbx";
-}
+	print "Would you like to save the output to a file? Press (y/n) to continue.\n";
+	my $Continue = <STDIN>;
+	chomp($Continue); 
+	$Continue=~tr/A-Z/a-z/;	
+	print "Starting file analysis:\n";
+	if($Continue eq 'y')
+	{
+	
+		if($tbxMinFlag eq 'TBX-Min')
+		{
+			$printfile = "converted_file.tbxm";
+		}
+		else
+		{
+			$printfile = "converted_file.tbx";
+		}
 
+		unless(open FILE, '>', $printfile)
+		{
+			die "\nUnable to create $printfile\n";
+		}
 
-unless(open FILE, '>', $printfile) {
-	die "\nUnable to create $printfile\n";
+		$twig_instance->print( \*FILE); 
+	}
 }
-
-$twig_instance->print( \*FILE); 
 $twig_instance->flush;  
 
 }
