@@ -97,6 +97,7 @@ my $tbxMinFlag;
 my $printfile;
 my $twig_instance = XML::Twig->new(
 
+comments => 'drop',
 pretty_print => 'indented',
 twig_handlers => {
 	
