@@ -2,12 +2,11 @@
 
 use strict;
 use warnings;
-use XML::Twig
+use XML::Twig;
+use open ':encoding(utf-8)', ':std'; #this ensures output file is UTF-8
 
-# The purpose of this app is to convert TBX-Basic files into the newest standard of TBX
+# The purpose of this app is to convert TBX-Basic, TBX-Min, and TBX-Default files into the newest standard of TBX
 # using the XML parser XML Twig. 
-#
-# There ability to convert TBX-Min files is also functional
 #
 # The App may be run silently with no commands or with prompts
 #
@@ -61,7 +60,7 @@ sub print_instructions
 	print "\t\t-s\tRun Silently with no User Interface prompts\n\n";
 	exit();
 }
-### Run with prompts
+# Run with prompts
 sub mode1 
 {
 	my ($fh) = @_;
@@ -93,8 +92,18 @@ sub mode2
 sub program_bulk
 {
 	
+# Initialize Variables	
+	
+my $name = "tbx";
+my $systemD = "TBXcoreStructV03.dtd";
+my $systemB = "TBXBasiccoreStructV03.dtd";
+my $basicFlag = 0;
+my $minFlag = 0;
+my $findType;
 my $tbxMinFlag;
 my $printfile;
+
+
 my $twig_instance = XML::Twig->new(
 
 comments => 'drop',
@@ -103,9 +112,9 @@ twig_handlers => {
 	
 	# Changes for older TBX-Min files
 	
-	entry => sub { $_->set_tag( 'termEntry' ) },
+	entry => sub { $_->set_tag( 'conceptEntry' ) },
 	
-	langGroup => sub { $_->set_tag( 'langSet' ) },
+	langGroup => sub { $_->set_tag( 'langSec' ) },
 	
 	termGroup => sub { $_->set_tag( 'termSec' ) },
 	
@@ -113,18 +122,20 @@ twig_handlers => {
 				
 	TBX => sub {	my ($twig,$elt) = @_;
 					$tbxMinFlag = $elt->att("dialect");
+					$minFlag++;
 					$_->set_tag( 'tbx' );
-					$_->set_att( style => "DCT" ); 
+					$_->set_att( style => "dct" ); 
 					$_->change_att_name( 'dialect', 'type' );
 				},
 				
 	tbxMin => sub {		my ($twig,$elt) = @_;
 						$tbxMinFlag = $elt->att("dialect");
-				
 				},
 				
-	martif => sub { $_->set_tag( 'tbx' );
-					$_->set_att( style => "DCA" ); 
+	martif => sub {	my ($twig,$elt) = @_;
+					$findType = $elt->att("type");
+					$_->set_tag( 'tbx' );
+					$_->set_att( style => "dca" );
 				},
 	
 	martifHeader => sub { $_->set_tag( 'tbxHeader' ) },
@@ -137,7 +148,9 @@ twig_handlers => {
 	
 	langSet => sub { $_->set_tag( 'langSec' ) },
 	
-	tig => sub { $_->set_tag( 'termSec' ) },
+	tig => sub { $_->set_tag( 'termSec' );
+				$basicFlag++;
+ 		   	},
 	
 	termCompList => sub { $_->set_tag( 'termCompSec' ) },
 	
@@ -153,12 +166,13 @@ twig_handlers => {
 				
 				if(defined($parent))
 				{
-	            $elt->cut();
-	            $elt->paste($parent);  
+	           		$elt->cut();
+	           	 	$elt->paste($parent);  
 				}
 			},
 				
-	ntig => sub { $_->set_tag( 'termSec' ) },			
+	ntig => sub { $_->set_tag( 'termSec' );
+	 		},			
 				
 	termGrp => sub { $_->delete() },				
 	
@@ -166,8 +180,38 @@ twig_handlers => {
 
 );
 
+# Parse the instance that was created
 
 $twig_instance->parsefile($ARGV[0]);
+
+# The following section is meant to update the <!DOCTYPE> statement relative to the dialect being used
+# This only applies to TBX-Default and TBX-Basic files
+
+if($basicFlag > 0 && $minFlag == 0 && $findType eq 'TBX-Basic')
+{
+	$twig_instance->set_doctype($name, $systemB);
+}
+if($findType eq 'TBX')
+{
+	$twig_instance->set_doctype($name, $systemD);
+	my ($defaultType) = $twig_instance->findnodes('/tbx[@type]');
+	$defaultType->set_att( type => 'TBX-Default');
+}
+if($findType eq 'TBX-Default')
+{
+	$twig_instance->set_doctype($name, $systemD);
+}
+
+# For TBX Dialects that are not Default or Basic, the <!DOCTYPE> will be changed to refer to the same dtd
+# as TBX-Default files. 
+
+if($findType ne 'TBX-Basic' && $findType ne 'TBX' && $findType ne 'TBX-Default')
+{
+	$twig_instance->set_doctype($name, $systemD);
+}
+
+
+# This section is for command prompt use only and give the user the option to save the console output to a file
 
 if (@ARGV == 1)
 {
