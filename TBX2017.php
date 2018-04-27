@@ -12,7 +12,7 @@
 		
 		$perl = "~/.plenv/versions/5.18.0/bin/perl";
 		$lib = "~/perl5/lib/perl5";
-		$script = "../scripts/TBX2017Converter.pl";
+		$script = "./TBX2017Converter.pl";
 		
 		$reroute_stderr = "2>$out_file_name";
 			
