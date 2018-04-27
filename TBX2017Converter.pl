@@ -136,6 +136,7 @@ twig_handlers => {
 					$findType = $elt->att("type");
 					$_->set_tag( 'tbx' );
 					$_->set_att( style => "dca" );
+					$_->set_att( xmlns => "urn:iso:std:iso:30042:ed:3.0" );
 				},
 	
 	martifHeader => sub { $_->set_tag( 'tbxHeader' ) },
