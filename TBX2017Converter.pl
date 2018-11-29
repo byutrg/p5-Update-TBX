@@ -50,6 +50,8 @@ sub get_schemas
 {
 	my ($dialect) = @_;
 	
+	return if !$dialect;
+	
 	$dialect = 'TBX-Basic' if ($dialect eq "TBX");
 	
 	my $url = "http://validate.tbxinfo.net/dialects/$dialect";
@@ -158,7 +160,6 @@ twig_handlers => {
 					
 					$_->set_att( type => 'TBX-Basic' ) if $findType eq "TBX";  #Enforce TBX-Basic on all "TBX" dialects. They will mostly be invalid.
 					$_->set_att( style => "dca" );
-					$_->set_att( xmlns => "urn:iso:std:iso:30042:ed-2" );
 				},
 	
 	martifHeader => sub { $_->set_tag( 'tbxHeader' ) },
@@ -207,9 +208,13 @@ twig_handlers => {
 
 $twig_instance->parsefile($ARGV[0]);
 $twig_instance->set_doctype(0, 0);
+$twig_instance->root->set_att( xmlns => "urn:iso:std:iso:30042:ed-2" );
 
-my %schemas = %{get_schemas($findType)};
-if (%schemas && $twig_instance->root->att('style') eq 'dca') 
+
+my $schemas_ref = get_schemas($twig_instance->root->att('type'));
+my %schemas = %$schemas_ref if $schemas_ref;
+
+if (%schemas)
 {
 	my $e = XML::Twig::Elt->new( 'k' => 'v');
 	$e->set_pi( 'xml-model', "href=\"$schemas{'dca_rng'}\" type=\"application/xml\" schematypens=\"http://relaxng.org/ns/structure/1.0\"");
@@ -218,37 +223,13 @@ if (%schemas && $twig_instance->root->att('style') eq 'dca')
 	$e->set_pi( 'xml-model', "href=\"$schemas{'dca_sch'}\" type=\"application/xml\" schematypens=\"http://purl.oclc.org/dsdl/schematron\"");
 	$e->move( before => $twig_instance->root);
 }
-elsif (%schemas)
-{
-	my $e = XML::Twig::Elt->new( 'k' => 'v');
-	$e->set_pi( 'xml-model', "href=\"$schemas{'dct_nvdl'}\" type=\"application/xml\" schematypens=\"http://purl.oclc.org/dsdl/nvdl/ns/structure/1.0\"");
-	$e->move( before => $twig_instance->root);
-}
 
-# The following section is meant to update the <!DOCTYPE> statement relative to the dialect being used
-# This only applies to TBX-Default and TBX-Basic files
-
-# if($basicFlag > 0 && $minFlag == 0 && $findType eq 'TBX-Basic')
+##All files are turned into DCT when updated
+# elsif (%schemas)
 # {
-	# $twig_instance->set_doctype(undef);
-# }
-# if($findType eq 'TBX')
-# {
-	# $twig_instance->set_doctype($name, $systemD);
-	# my ($defaultType) = $twig_instance->findnodes('/tbx[@type]');
-	# $defaultType->set_att( type => 'TBX-Basic');
-# }
-# if($findType eq 'TBX-Default')
-# {
-	# $twig_instance->set_doctype(undef);
-# }
-
-# For TBX Dialects that are not Default or Basic, the <!DOCTYPE> will be changed to refer to the same dtd
-# as TBX-Default files. 
-
-# if($findType ne 'TBX-Basic' && $findType ne 'TBX' && $findType ne 'TBX-Default')
-# {
-	# $twig_instance->set_doctype(undef);
+	# my $e = XML::Twig::Elt->new( 'k' => 'v');
+	# $e->set_pi( 'xml-model', "href=\"$schemas{'dct_nvdl'}\" type=\"application/xml\" schematypens=\"http://purl.oclc.org/dsdl/nvdl/ns/structure/1.0\"");
+	# $e->move( before => $twig_instance->root);
 # }
 
 
