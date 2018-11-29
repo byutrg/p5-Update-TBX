@@ -37,7 +37,7 @@
 
 	    // If it did work, download a text file using the output stored in the $printed_output variable
 	    else{
-	        $down_file_name = $_FILES['upload']['name'];
+	        $down_file_name = str_replace(".tbxm", ".tbx", $_FILES['upload']['name']);
 	        header("Content-type: application/octet-stream");
 	        header('Content-Disposition: attachment; filename="' .
 	            $down_file_name . '"');
