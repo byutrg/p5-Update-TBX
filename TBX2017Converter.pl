@@ -3,6 +3,9 @@
 use strict;
 use warnings;
 use XML::Twig;
+use LWP::Simple;
+use Data::Dumper;
+use JSON;
 use open ':encoding(utf-8)', ':std'; #this ensures output file is UTF-8
 
 # The purpose of this app is to convert TBX-Basic, TBX-Min, and TBX-Default files into the newest standard of TBX
@@ -41,6 +44,26 @@ elsif (@ARGV == 1)
 else 
 {
 	print_instructions();
+}
+
+sub get_schemas
+{
+	my ($dialect) = @_;
+	
+	$dialect = 'TBX-Basic' if ($dialect eq "TBX");
+	
+	my $url = "http://validate.tbxinfo.net/dialects/$dialect";
+	my $response_str = get($url);
+	my $json_obj = JSON->new;
+	my $data = $json_obj->decode($response_str);
+	
+	my %schemas = (
+		dca_rng =>	${@$data[0]}{'dca_rng'},
+		dca_sch =>	${@$data[0]}{'dca_sch'},
+		dct_nvdl =>	${@$data[0]}{'dct_nvdl'}
+	) if @$data[0];
+	
+	return \%schemas;
 }
 
 sub get_filehandle
@@ -95,17 +118,13 @@ sub program_bulk
 # Initialize Variables	
 	
 my $name = "tbx";
-my $systemD = "TBXcoreStructV03.dtd";
-my $systemB = "TBXBasiccoreStructV03.dtd";
 my $basicFlag = 0;
 my $minFlag = 0;
 my $findType;
 my $tbxMinFlag;
 my $printfile;
 
-
 my $twig_instance = XML::Twig->new(
-
 comments => 'drop',
 pretty_print => 'indented',
 twig_handlers => {
@@ -119,10 +138,10 @@ twig_handlers => {
 	termGroup => sub { $_->set_tag( 'termSec' ) },
 	
 	# Replace tags with updated names
-				
 	TBX => sub {	my ($twig,$elt) = @_;
 					$tbxMinFlag = $elt->att("dialect");
 					$minFlag++;
+					
 					$_->set_tag( 'tbx' );
 					$_->set_att( style => "dct" ); 
 					$_->change_att_name( 'dialect', 'type' );
@@ -134,9 +153,12 @@ twig_handlers => {
 				
 	martif => sub {	my ($twig,$elt) = @_;
 					$findType = $elt->att("type");
+					
 					$_->set_tag( 'tbx' );
+					
+					$_->set_att( type => 'TBX-Basic' ) if $findType eq "TBX";  #Enforce TBX-Basic on all "TBX" dialects. They will mostly be invalid.
 					$_->set_att( style => "dca" );
-					$_->set_att( xmlns => "urn:iso:std:iso:30042:ed:3.0" );
+					$_->set_att( xmlns => "urn:iso:std:iso:30042:ed-2" );
 				},
 	
 	martifHeader => sub { $_->set_tag( 'tbxHeader' ) },
@@ -184,35 +206,54 @@ twig_handlers => {
 # Parse the instance that was created
 
 $twig_instance->parsefile($ARGV[0]);
+$twig_instance->set_doctype(0, 0);
+
+my %schemas = %{get_schemas($findType)};
+if (%schemas && $twig_instance->root->att('style') eq 'dca') 
+{
+	my $e = XML::Twig::Elt->new( 'k' => 'v');
+	$e->set_pi( 'xml-model', "href=\"$schemas{'dca_rng'}\" type=\"application/xml\" schematypens=\"http://relaxng.org/ns/structure/1.0\"");
+	$e->move( before => $twig_instance->root);
+	$e = XML::Twig::Elt->new( 'k' => 'v');
+	$e->set_pi( 'xml-model', "href=\"$schemas{'dca_sch'}\" type=\"application/xml\" schematypens=\"http://purl.oclc.org/dsdl/schematron\"");
+	$e->move( before => $twig_instance->root);
+}
+elsif (%schemas)
+{
+	my $e = XML::Twig::Elt->new( 'k' => 'v');
+	$e->set_pi( 'xml-model', "href=\"$schemas{'dct_nvdl'}\" type=\"application/xml\" schematypens=\"http://purl.oclc.org/dsdl/nvdl/ns/structure/1.0\"");
+	$e->move( before => $twig_instance->root);
+}
 
 # The following section is meant to update the <!DOCTYPE> statement relative to the dialect being used
 # This only applies to TBX-Default and TBX-Basic files
 
-if($basicFlag > 0 && $minFlag == 0 && $findType eq 'TBX-Basic')
-{
-	$twig_instance->set_doctype($name, $systemB);
-}
-if($findType eq 'TBX')
-{
-	$twig_instance->set_doctype($name, $systemD);
-	my ($defaultType) = $twig_instance->findnodes('/tbx[@type]');
-	$defaultType->set_att( type => 'TBX-Default');
-}
-if($findType eq 'TBX-Default')
-{
-	$twig_instance->set_doctype($name, $systemD);
-}
+# if($basicFlag > 0 && $minFlag == 0 && $findType eq 'TBX-Basic')
+# {
+	# $twig_instance->set_doctype(undef);
+# }
+# if($findType eq 'TBX')
+# {
+	# $twig_instance->set_doctype($name, $systemD);
+	# my ($defaultType) = $twig_instance->findnodes('/tbx[@type]');
+	# $defaultType->set_att( type => 'TBX-Basic');
+# }
+# if($findType eq 'TBX-Default')
+# {
+	# $twig_instance->set_doctype(undef);
+# }
 
 # For TBX Dialects that are not Default or Basic, the <!DOCTYPE> will be changed to refer to the same dtd
 # as TBX-Default files. 
 
-if($findType ne 'TBX-Basic' && $findType ne 'TBX' && $findType ne 'TBX-Default')
-{
-	$twig_instance->set_doctype($name, $systemD);
-}
+# if($findType ne 'TBX-Basic' && $findType ne 'TBX' && $findType ne 'TBX-Default')
+# {
+	# $twig_instance->set_doctype(undef);
+# }
 
 
 # This section is for command prompt use only and give the user the option to save the console output to a file
+# my %schemas = get_schemas($twig_instance->tbx->att('type'));
 
 if (@ARGV == 1)
 {
@@ -224,20 +265,13 @@ if (@ARGV == 1)
 	if($Continue eq 'y')
 	{
 	
-		if($tbxMinFlag eq 'TBX-Min')
-		{
-			$printfile = "converted_file.tbxm";
-		}
-		else
-		{
-			$printfile = "converted_file.tbx";
-		}
+		$printfile = "converted_file.tbx";
 
 		unless(open FILE, '>', $printfile)
 		{
 			die "\nUnable to create $printfile\n";
 		}
-
+		
 		$twig_instance->print( \*FILE); 
 	}
 }
